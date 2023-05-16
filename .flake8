@@ -1,0 +1,3 @@
+[flake8]
+ignore = W50, E203, E501  # error strings, docs and preferred style
+exclude = .flake8,.git,__pycache__

@@ -1,0 +1,20 @@
+# Copy from https://github.com/edoburu/django-project-template/blob/master/.dockerignore
+*.pyc
+*.pyo
+*.mo
+*.db
+*.sql.gz
+.cache
+.project
+.idea
+.pydevproject
+.idea/workspace.xml
+.DS_Store
+.git/
+__pycache__
+Dockerfile
+# mine
+.venv
+*.env
+.pytest_cache
+.vscode

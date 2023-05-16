@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  auth-server:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=mysecretkey
+    restart: always
