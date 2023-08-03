@@ -3,7 +3,7 @@ Authentication server
 
 Build with:
 
-docker build --tag authi .
+docker build --tag authi .   
 docker run -d -it -p 8000:8000 authi
 
 @baseUrl = http://127.0.0.1:8000
