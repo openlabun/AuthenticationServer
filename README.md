@@ -56,5 +56,15 @@ Content-Type: {{contentType}}
 
 GET {{baseUrl}}/users/ HTTP/1.1
 
+Next steps:
+
+1.	Service mode: the idea is to provide authentication services to multiple applications, each with its own contract, to achieve this, we need:
+a.	An endpoint that receives a request to create a new contract and gives back a key, this key should be unique and serves to identify the contract 
+b.	The key should be used in any subsequential request 
+c.	Each contract will be allowed up to 100 users.
+2.	Persistence
+a.	Use a database to store keys and user information for every contract
+b.	Create an admin page to be able to delete contracts
+
 
 
