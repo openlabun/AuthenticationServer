@@ -5,6 +5,9 @@ Build with:
 
 docker build --tag authi .   
 docker run -d -it -p 8000:8000 authi
+
+From Docker Hub:
+docker run -d -it -p 8000:8000 augustosalazar/authi:2   
    
 @baseUrl = http://127.0.0.1:8000
 @contentType = application/json
