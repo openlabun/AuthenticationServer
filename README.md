@@ -64,4 +64,4 @@ a.	Use a database to store keys and user information for every contract
 b.	Create an admin page to be able to delete contracts   
 
 
-
+Author: Shaddia Andrea Acuña Lara
