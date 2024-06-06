@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+</head>
+
+<body>
+    <h1>Admin Page</h1>
+
+    <div>
+        <h2>Delete All Users</h2>
+        <input type="text" id="deleteAllContractKey" placeholder="Contract Key">
+        <button onclick="deleteAllUsers()">Delete All Users</button>
+        <p id="deleteAllResult"></p>
+    </div>
+
+    <div>
+        <h2>Delete Contract</h2>
+        <input type="text" id="deleteContractKey" placeholder="Contract Key">
+        <button onclick="deleteContract()">Delete Contract</button>
+        <p id="deleteContractResult"></p>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000'; // Cambia esto si tu servidor FastAPI está en otra dirección
+
+        async function deleteAllUsers() {
+            const contractKey = document.getElementById('deleteAllContractKey').value;
+            const resultElement = document.getElementById('deleteAllResult');
+
+            try {
+                const response = await fetch(`${API_URL}/delete-all?contract_key=${contractKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultElement.textContent = data.message;
+                } else {
+                    const errorData = await response.json();
+                    resultElement.textContent = errorData.detail;
+                }
+            } catch (error) {
+                resultElement.textContent = 'An error occurred: ' + error.message;
+            }
+        }
+
+        async function deleteContract() {
+            const contractKey = document.getElementById('deleteContractKey').value;
+            const resultElement = document.getElementById('deleteContractResult');
+
+            try {
+                const response = await fetch(`${API_URL}/delete-contract?contract_key=${contractKey}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultElement.textContent = data.message;
+                } else {
+                    const errorData = await response.json();
+                    resultElement.textContent = errorData.detail;
+                }
+            } catch (error) {
+                resultElement.textContent = 'An error occurred: ' + error.message;
+            }
+        }
+    </script>
+</body>
+
+</html>

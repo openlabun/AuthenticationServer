@@ -1,10 +1,12 @@
-from datetime import datetime, timedelta
-from typing import Annotated, List
+from datetime import datetime, timedelta, timezone
+from typing import List
 
 import jwt
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import Column, ForeignKey, Integer, String, create_engine
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 app = FastAPI()
 
@@ -16,17 +18,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+Base = declarative_base()
+engine = create_engine('sqlite:///./auth.db')
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-class User(BaseModel):
+
+class Contract(Base):
+    __tablename__ = 'contracts'
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True)
+    app_name = Column(String, index=True)
+    users = relationship("User", back_populates="contract")
+
+
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    first_name = Column(String)
+    last_name = Column(String)
+    password = Column(String)
+    contract_id = Column(Integer, ForeignKey('contracts.id'))
+    contract = relationship("Contract", back_populates="users")
+
+
+Base.metadata.create_all(bind=engine)
+
+
+class UserSchema(BaseModel):
     username: str
     first_name: str
     last_name: str
     password: str
 
 
+class ContractSchema(BaseModel):
+    key: str
+    app_name: str
+
+
 class LoginSchema(BaseModel):
     username: str
     password: str
+    app_name: str
 
 
 class DisplayUser(BaseModel):
@@ -35,23 +69,48 @@ class DisplayUser(BaseModel):
     last_name: str
 
 
-# Create a list to store users
-users_db: List[User] = []
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
-# Define an endpoint to register a user
+@app.post("/create-contract", response_model=ContractSchema)
+def create_contract(app_name: str, db: SessionLocal = Depends(get_db)):
+    import uuid
+    new_key = str(uuid.uuid4())
+    contract = Contract(key=new_key, app_name=app_name)
+    db.add(contract)
+    db.commit()
+    db.refresh(contract)
+    return {"key": contract.key, "app_name": contract.app_name}
+
+
 @app.post("/register")
-async def register(data: User):
-    for user in users_db:
-        if user.username == data.username:
-            raise HTTPException(status_code=400, detail="Username already registered")
+async def register(data: UserSchema, contract_key: str, db: SessionLocal = Depends(get_db)):
+    contract = db.query(Contract).filter(Contract.key == contract_key).first()
+    if not contract:
+        raise HTTPException(status_code=400, detail="Invalid contract key")
+    
+    if len(contract.users) >= 100:
+        raise HTTPException(status_code=400, detail="User limit reached for this contract")
+    
+    existing_user = db.query(User).filter(User.username == data.username, User.contract_id == contract.id).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already registered within this contract")
+    
     new_user = User(
         username=data.username,
         first_name=data.first_name,
         last_name=data.last_name,
         password=data.password,
+        contract_id=contract.id
     )
-    users_db.append(new_user)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
     return {
         "username": new_user.username,
         "first_name": new_user.first_name,
@@ -59,56 +118,53 @@ async def register(data: User):
     }
 
 
-# Define an endpoint to list all users
 @app.get("/users")
-async def list_users() -> List[DisplayUser]:
+async def list_users(contract_key: str, db: SessionLocal = Depends(get_db)) -> List[DisplayUser]:
+    contract = db.query(Contract).filter(Contract.key == contract_key).first()
+    if not contract:
+        raise HTTPException(status_code=400, detail="Invalid contract key")
+    
     return [
-        DisplayUser(
-            username=user.username, first_name=user.first_name, last_name=user.last_name
-        )
-        for user in users_db
+        DisplayUser(username=user.username, first_name=user.first_name, last_name=user.last_name)
+        for user in contract.users
     ]
 
 
 @app.post("/delete-all")
-def delete_all():
-    users_db.clear()
+def delete_all(contract_key: str, db: SessionLocal = Depends(get_db)):
+    contract = db.query(Contract).filter(Contract.key == contract_key).first()
+    if not contract:
+        raise HTTPException(status_code=400, detail="Invalid contract key")
+    
+    for user in contract.users:
+        db.delete(user)
+    db.commit()
     return {"message": "All users deleted"}
 
 
-# Define JWT settings
 JWT_SECRET = "supersecret"
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_MINUTES = 1440
 
 
-# Define a function to authenticate a user with a given username and password
-def authenticate_user(username: str, password: str):
-    for user in users_db:
-        if user.username == username:
-            if user.password == password:
-                return user
-            else:
-                raise HTTPException(
-                    status_code=401, detail="Invalid username or password"
-                )
-    raise HTTPException(status_code=401, detail="Invalid username or password")
+def authenticate_user(username: str, password: str, app_name: str, db: SessionLocal):
+    user = db.query(User).join(Contract).filter(User.username == username, Contract.app_name == app_name).first()
+    if not user or user.password != password:
+        return False
+    return user
 
 
-# Define an endpoint to create a new access token and refresh token
-@app.post("/login")
-async def login(data: LoginSchema):
-    user = authenticate_user(data.username, data.password)
+def create_jwt_token(user: User):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
     access_token = jwt.encode(
-        {"sub": user.username, "exp": datetime.utcnow() + access_token_expires},
+        {"sub": user.username, "exp": datetime.now(timezone.utc) + access_token_expires},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM,
     )
     refresh_token = jwt.encode(
-        {"sub": user.username, "exp": datetime.utcnow() + refresh_token_expires},
+        {"sub": user.username, "exp": datetime.now(timezone.utc) + refresh_token_expires},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM,
     )
@@ -124,27 +180,25 @@ class RefreshScheme(BaseModel):
 
 
 @app.get("/me")
-async def me(authorization: Annotated[str | None, Header()] = None):
-    if authorization is None:
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
+async def me(token: str , db: SessionLocal = Depends(get_db)):
+    if not token:
+        raise HTTPException(status_code=401, detail="Token is missing")
     try:
-        token = authorization.split(" ")[1]
         decoded_token = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         username = decoded_token["sub"]
-        for user in users_db:
-            if user.username == username:
-                return {
-                    "username": user.username,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                }
-        raise HTTPException(status_code=401, detail="User does not exist")
-    except Exception as e:
-        print(e)
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User does not exist")
+        return {
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-
-# Define an endpoint to refresh an access token with a refresh token
 @app.post("/refresh")
 async def refresh_token(data: RefreshScheme):
     try:
@@ -162,3 +216,22 @@ async def refresh_token(data: RefreshScheme):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@app.delete("/delete-contract")
+def delete_contract(contract_key: str, db: SessionLocal = Depends(get_db)):
+    contract = db.query(Contract).filter(Contract.key == contract_key).first()
+    if not contract:
+        raise HTTPException(status_code=400, detail="Invalid contract key")
+    
+    db.delete(contract)
+    db.commit()
+    return {"message": "Contract deleted"}
+
+
+@app.post("/login")
+async def login(data: LoginSchema, db: SessionLocal = Depends(get_db)):
+    user = authenticate_user(data.username, data.password, data.app_name, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username, password, or app name")
+    return create_jwt_token(user)
