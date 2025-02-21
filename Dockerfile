@@ -5,11 +5,11 @@ FROM python:3.10-slim-buster
 WORKDIR /app
 
 # Copy the requirements file into the container and install dependencies
-COPY requirements.txt .
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
-COPY . .
+COPY /app .
 
 # Expose port 8000 for the FastAPI server
 EXPOSE 8000
