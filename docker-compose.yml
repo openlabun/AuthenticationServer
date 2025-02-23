@@ -4,7 +4,7 @@ services:
   auth-server:
     build: .
     ports:
-      - "8000:8000"
+      - "5026:8000"
     environment:
       - SECRET_KEY=mysecretkey
     restart: always
