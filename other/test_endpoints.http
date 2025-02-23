@@ -1,4 +1,4 @@
-@baseUrl = http://127.0.0.1:8000
+@baseUrl = https://proyectosingenieria.uninorte.edu.co/authserver
 @contentType = application/json
 
 
