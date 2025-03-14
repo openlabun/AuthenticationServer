@@ -26,7 +26,7 @@ jobs:
           cd /home/proyecto/AuthenticationServer/
           git pull origin main
           git status
-          docker stop authuserver-app
-          docker rm authuserver-app
+          docker stop authuserver
+          docker rm authuserver
           docker build -t authuserver-image . || { echo "Docker build failed"; exit 1; }
           docker run -d -it -p 5026:8000 --restart unless-stopped --name authuserver authuserver-image || { echo "Docker run failed"; exit 1; }
