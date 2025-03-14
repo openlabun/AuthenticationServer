@@ -28,5 +28,5 @@ jobs:
           git status
           docker stop authuserver-app
           docker rm authuserver-app
-          docker build -t authuserver . || { echo "Docker build failed"; exit 1; }
-          docker run -d -it -p 5026:8000 --restart unless-stopped --name authuserver-app authuserver || { echo "Docker run failed"; exit 1; }
+          docker build -t authuserver-image . || { echo "Docker build failed"; exit 1; }
+          docker run -d -it -p 5026:8000 --restart unless-stopped --name authuserver authuserver-image || { echo "Docker run failed"; exit 1; }
