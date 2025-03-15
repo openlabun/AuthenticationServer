@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY /app .
 
 # Expose port 8000 for the FastAPI server
-EXPOSE 5020 8000
+EXPOSE 8000
 
 # Start the FastAPI server with uvicorn in port 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
