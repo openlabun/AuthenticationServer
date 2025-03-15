@@ -3,7 +3,7 @@
 
 ## Build with
 ```
-docker build -t authuserver-image . |
+docker build -t authuserver-image .
 docker run -d -it -p 5026:8000 --restart unless-stopped --name authuserver authuserver-image
 ```
 
