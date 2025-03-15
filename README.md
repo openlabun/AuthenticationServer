@@ -9,4 +9,4 @@ docker run -d -it -p 5026:8000 --restart unless-stopped --name authuserver authu
 
 ##Initial Authors   
 
-Sebatian Valle - Shaddia Andrea Acuña Lara
+Sebatian Valle - Shaddia Andrea Acuña Lara - Augusto Salazar
